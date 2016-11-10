@@ -41,7 +41,8 @@ type Yaml struct {
 /*
 	true by default, for now.
 */
-var Compat = false
+var SupportsFlatKey = true
+var FlatKeySeparator = "."
 
 /*
 	Creates and returns a YAML struct.
@@ -78,6 +79,23 @@ func Open(file string) (*Yaml, error) {
 }
 
 /*
+	Loads a YAML file from []byte.
+*/
+func Parse(data []byte) (*Yaml, error) {
+	var err error
+
+	self := New()
+
+	err = yaml.Unmarshal(data, &self.values)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return self, nil
+}
+
+/*
 	Sets a YAML setting
 */
 func (self *Yaml) Set(params ...interface{}) error {
@@ -88,22 +106,20 @@ func (self *Yaml) Set(params ...interface{}) error {
 		return fmt.Errorf("Missing value.")
 	}
 
-	if Compat == true {
+	if SupportsFlatKey == true {
 		if len(params) == 2 {
 			if reflect.TypeOf(params[0]).Kind() == reflect.String {
 				p := params[0].(string)
 
-				if strings.Contains(p, "/") == true {
-					p := strings.Split(p, "/")
+				if strings.Contains(p, FlatKeySeparator) == true {
+					p := strings.Split(p, FlatKeySeparator)
 
 					value := params[1]
 					route := make([]interface{}, len(p))
 
-					for i, _ := range p {
+					for i := range p {
 						route[i] = p[i]
 					}
-
-					log.Printf(`Using a route separated by "/" is deprecated, please use yaml.*Yaml.Get("%s") instead.`, strings.Join(p, `", "`))
 
 					dig.Dig(&self.values, route...)
 					return dig.Set(&self.values, value, route...)
@@ -125,21 +141,19 @@ func (self *Yaml) Set(params ...interface{}) error {
 func (self *Yaml) Get(route ...interface{}) interface{} {
 	var i interface{}
 
-	if Compat == true {
+	if SupportsFlatKey == true {
 		// Compatibility should be removed soon.
 		if len(route) == 1 {
 			p := route[0].(string)
 
-			if strings.Contains(p, "/") == true {
-				p := strings.Split(p, "/")
+			if strings.Contains(p, FlatKeySeparator) == true {
+				p := strings.Split(p, FlatKeySeparator)
 
 				route := make([]interface{}, len(p))
 
-				for i, _ := range p {
+				for i := range p {
 					route[i] = p[i]
 				}
-
-				log.Printf(`Using a route separated by "/" is deprecated, please use yaml.*Yaml.Get("%s") instead.`, strings.Join(p, `", "`))
 
 				dig.Get(&self.values, &i, route...)
 				return i
